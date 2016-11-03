@@ -196,6 +196,8 @@ uly = 0
 lrx = 128
 lry = 128
 print(a.shape)
+fig,ax = plt.subplots(ncols = 1,nrows = 1, figsize = (8,6))
+ax.imshow(a)
 while(True):
 	window = a[uly:lry,ulx:lrx]
 	window = hog_gen(0,window,False,False)
@@ -204,8 +206,9 @@ while(True):
 	pred = clf.predict(w_pca)
 	print(pred)
 	if(pred[0] == 1):
-		imshow(a[uly:lry,ulx:lrx])
-		plt.show()
+		rect = mpatches.Rectangle((ulx, uly),128, 128,
+                              fill=False, edgecolor='red', linewidth=2)
+		ax.add_patch(rect)
 	ulx +=20
 	lrx +=20
 	if(lrx> 320):
@@ -216,3 +219,4 @@ while(True):
 	if(lry > 240):
 		break
 	del window
+plt.show()
