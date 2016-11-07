@@ -189,34 +189,53 @@ print("done in %0.3fs" % (time() - t0))
 print(accuracy_score(y_test,y_pred))
 
 #Checking on some random image
-a = imread('4.jpg')
+a = imread('p.jpg')
+bounding_list = []
+scale_f = 0
+#a = resize(a,(240,320))
 #Window coordinates
-ulx = 0
-uly = 0
-lrx = 128
-lry = 128
-print(a.shape)
+for scale in pyramid_gaussian(a,downscale = 1.1): 
+    ulx = 0
+    uly = 0
+    lrx = 128
+    lry = 128
+    print(scale.shape)
+    if(scale.shape[0] < 128 or scale.shape[1] < 128):
+        break
+    fig,ax = plt.subplots(ncols = 1,nrows = 1, figsize = (8,6))
+    ax.imshow(a)
+    
+    while(True):
+    	window = scale[uly:lry,ulx:lrx]
+    	window = hog_gen(0,window,False,False)
+    	window = window.reshape(1,window.shape[0]*window.shape[1])
+    	w_pca  = pca.transform(window)
+    	pred = clf.predict(w_pca)
+    	print(pred)
+    	if(pred[0] == 1):
+    		rect = mpatches.Rectangle((ulx, uly),128*(1.1**scale_f), 128*(1.1**scale_f),
+                                  fill=False, edgecolor='red', linewidth=2)
+    		ax.add_patch(rect)
+           	bounding_list.append([ulx,uly,lrx + (128*(1.1**scale_f) - 128),lry + (128*(1.1**scale_f) - 128)])
+    	ulx +=20
+    	lrx +=20
+    	if(lrx> scale.shape[1]):
+    		ulx = 0
+    		lrx =  128
+    		lry += 20
+    		uly +=20
+    	if(lry > scale.shape[0]):
+    		break
+    	del window
+    scale_f+=1
+    plt.show()
+    
+boxes = np.vstack(bounding_list)
+final_box = non_max_supression_fast(boxes,0.2)
+
 fig,ax = plt.subplots(ncols = 1,nrows = 1, figsize = (8,6))
 ax.imshow(a)
-while(True):
-	window = a[uly:lry,ulx:lrx]
-	window = hog_gen(0,window,False,False)
-	window = window.reshape(1,window.shape[0]*window.shape[1])
-	w_pca  = pca.transform(window)
-	pred = clf.predict(w_pca)
-	print(pred)
-	if(pred[0] == 1):
-		rect = mpatches.Rectangle((ulx, uly),128, 128,
-                              fill=False, edgecolor='red', linewidth=2)
-		ax.add_patch(rect)
-	ulx +=20
-	lrx +=20
-	if(lrx> 320):
-		ulx = 0
-		lrx =  128
-		lry += 10
-		uly +=10
-	if(lry > 240):
-		break
-	del window
+for i in range(0,len(final_box)):
+    rect = mpatches.Rectangle((final_box[i][0],final_box[i][1]),128,128,fill=False, edgecolor='red', linewidth=2)
+    ax.add_patch(rect)
 plt.show()
