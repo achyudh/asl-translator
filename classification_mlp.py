@@ -2,6 +2,7 @@ from util.preprocessing import *
 from util.dataset_io import *
 from keras.models import Sequential
 from keras.layers import Dense, Activation, Dropout
+from keras.regularizers import l1l2, activity_l1l2
 from keras.utils import np_utils
 from keras.optimizers import Adamax
 import random
@@ -12,7 +13,7 @@ import tensorflow as tf
 tf.python.control_flow_ops = tf
 
 
-def train_mlp1(x_train, y_train, x_test, y_test, input_dim, num_classes=5, data_augmentation=True):
+def train_mlp1(x_train, y_train, x_test, y_test, input_dim, num_classes=5):
     """
 
     :param x_train:
@@ -24,17 +25,18 @@ def train_mlp1(x_train, y_train, x_test, y_test, input_dim, num_classes=5, data_
     :return:
     """
     model = Sequential()
-    model.add(Dense(512, input_dim=input_dim))
+    model.add(Dense(384, input_dim=input_dim))
     model.add(Activation('relu'))   # An "activation" is just a non-linear function applied to the output of the layer
                                     # above. Here, with a "rectified linear unit", we clamp all values below 0 to 0.
-    model.add(Dropout(0.25))        # Dropout helps protect the model from memorizing or "overfitting" the training data
-    model.add(Dense(768))
+    model.add(Dropout(0.1))        # Dropout helps protect the model from memorizing or "overfitting" the training data
+    model.add(Dense(512))
     model.add(Activation('relu'))
 
+    model.add(Dropout(0.1))
     model.add(Dense(256))
     model.add(Activation('relu'))
 
-    model.add(Dropout(0.25))
+    model.add(Dropout(0.1))
     model.add(Dense(num_classes))
     model.add(Activation('softmax'))  # This special "softmax" activation among other things,
                                       # ensures the output is a valid probability distribution, that is
@@ -42,7 +44,7 @@ def train_mlp1(x_train, y_train, x_test, y_test, input_dim, num_classes=5, data_
 
     model.compile(loss='categorical_crossentropy', optimizer=Adamax(lr=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=1e-5), metrics=["accuracy"])
     model.fit(x_train, y_train,
-              batch_size=20, nb_epoch=32, verbose=1,
+              batch_size=48, nb_epoch=16, verbose=1,
               validation_data=(x_test, y_test))
     score = model.evaluate(x_test, y_test, verbose=1)
     return score[1]
@@ -64,13 +66,13 @@ def classify_images(foldername="data/cropped/", num_users=20, num_classes=5):
 
     for i in range(0, num_users):
         rand_int = random.randrange(0, num_groups)
-        while num_users_in_group[rand_int] >= 5:
+        while num_users_in_group[rand_int] >= k_fold:
             rand_int = random.randrange(0, num_groups)
         user_group_map[i] = rand_int
-        num_users_in_group[rand_int] = 1
+        num_users_in_group[rand_int] += 1
 
     print("Loading images...")
-    hog_dataset = unpickle_hog_arrays("data/cropped_hog.pkl")
+    hog_dataset = unpickle_features("data/cropped_hog_4x4.pkl")
     for t0 in range(0, num_groups):
         print("ITERATION:", t0+1, "\n----------")
         x_train = list()

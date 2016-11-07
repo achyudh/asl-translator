@@ -1,0 +1,1 @@
+Generate DAISY and LBP features using the util/dataset_io module and store it here as cropped_daisy.pkl and cropped_lbp.pkl respectively. This is required for the classifier to work.
