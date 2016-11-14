@@ -32,6 +32,7 @@ from sklearn.grid_search import GridSearchCV
 from sklearn.metrics import accuracy_score
 from sklearn.svm import SVC
 from sklearn.decomposition import PCA
+import matplotlib.patches as mpatches
 
 current_folder = os.getcwd()
 dataset_folder = current_folder + '/dataset/'
@@ -69,10 +70,6 @@ def makenpy(users_folder,dataset_folder):
 					rx2,ry2 = lx2+110,ly2+110
 				false_h = img[ly2:ry2,lx2:rx2]
 				not_hand.append(false_h)
-				# fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(8, 4), sharex=True, sharey=True)
-				# ax1.imshow(false_h)
-				# ax2.imshow(resize(hand_crop,(110,110)))
-				# plt.show()
 			else:
 				print('done')
 				continue
@@ -114,11 +111,6 @@ def hog_gen(image,display_img=False,path=0):
 
 	return hog_image
 
-def func(image):
-	l = []
-	l.append(hog_gen(0,image,False))
-	return l
-
 def load_npy(samples,target):
     X = np.load(samples)
     Y = np.load(target)
@@ -142,22 +134,100 @@ def get_pca(X_train,X_test,n_components):
     X_train_pca = pca.transform(X_train)
     X_test_pca = pca.transform(X_test)
     print(X_train_pca.shape)
-    return X_train_pca,X_test_pca
+    return X_train_pca,X_test_pca,pca
+
+def non_max_supression_fast(boxes,overlapThresh):
+    if len(boxes) == 0:
+        return []
+    if boxes.dtype.kind == "i":
+        boxes = boxes.astype("float")
+    pick = []
+    ulx = boxes[:,0]
+    uly = boxes[:,1]
+    lrx = boxes[:,2]
+    lry = boxes[:,3]
+    area = (lrx - ulx + 1)*(lry - uly + 1)
+    idxs = np.argsort(lry)
+    while len(idxs) > 0:
+        last = len(idxs) - 1
+        i = idxs[last]
+        pick.append(i)
+        xx1 = np.maximum(ulx[i], ulx[idxs[:last]])
+        yy1 = np.maximum(uly[i], uly[idxs[:last]])
+        xx2 = np.minimum(lrx[i], lrx[idxs[:last]])
+        yy2 = np.minimum(lry[i], lry[idxs[:last]])
+       
+        w = np.maximum(0, xx2 - xx1 + 1)
+        h = np.maximum(0, yy2 - yy1 + 1)
+        overlap = (w * h) / area[idxs[:last]]
+        idxs = np.delete(idxs, np.concatenate(([last],
+			np.where(overlap > overlapThresh)[0])))    
+    return boxes[pick].astype("int")
+
+def testOnImage(image,clf,pca):
+	#Checking on some random image
+	a = imread(image)
+	bounding_list = []
+	scale_f = 0
+	#Window coordinates
+	for scale in pyramid_gaussian(a,downscale = 1.1): 
+	    ulx = 0
+	    uly = 0
+	    lrx = 110
+	    lry = 110
+	    print(scale.shape)
+	    if(scale.shape[0] < 110 or scale.shape[1] < 110):
+	        break
+	    fig,ax = plt.subplots(ncols = 1,nrows = 1, figsize = (8,6))
+	    ax.imshow(a)
+	    
+	    while(True):                             
+	    	window = scale[uly:lry,ulx:lrx]
+	    	window = hog_gen(window)
+	    	window = window.reshape(1,window.shape[0]*window.shape[1])
+	    	w_pca  = pca.transform(window)
+	    	pred = clf.predict(w_pca)
+	    	print(pred)
+	    	if(pred[0] == 1):
+	    		rect = mpatches.Rectangle((ulx, uly),110*(1.1**scale_f), 110*(1.1**scale_f),fill=False, edgecolor='red', linewidth=2)
+	    		ax.add_patch(rect)
+	           	bounding_list.append([ulx,uly,lrx + (110*(1.1**scale_f) - 110),lry + (110*(1.1**scale_f) - 110)])
+	    	ulx +=20
+	    	lrx +=20
+	    	if(lrx> scale.shape[1]):
+	    		ulx = 0
+	    		lrx =  110
+	    		lry += 20
+	    		uly +=20
+	    	if(lry > scale.shape[0]):
+	    		break
+	    	del window
+	    scale_f+=1
+	    plt.show()
+	    
+	boxes = np.vstack(bounding_list)
+	final_box = non_max_supression_fast(boxes,0.3)
+
+	fig,ax = plt.subplots(ncols = 1,nrows = 1, figsize = (8,6))
+	ax.imshow(a)
+	for i in range(0,len(final_box)):
+	    rect = mpatches.Rectangle((final_box[i][0],final_box[i][1]),110,110,fill=False, edgecolor='red', linewidth=2)
+	    ax.add_patch(rect)
+	plt.show()
+
 
 #makenpy(users_folder,dataset_folder)
 X,Y = load_npy('samples.npy','target.npy')
 X = X.reshape(X.shape[0],X.shape[1]*X.shape[2])
 X_train,X_test,y_train,y_test = train_test_split(X,Y,test_size=0.25)
-del X
-del Y
 n_components = 1000 #Number of features
-X_train_pca,X_test_pca = get_pca(X_train,X_test)
+X_train_pca,X_test_pca,pca = get_pca(X_train,X_test)
 trainedclf = train_classifier(X_train_pca,y_train)
-print("Predicting")
-t0 = time()
 y_pred = trainedclf.predict(X_test_pca)
-print("done in %0.3fs" % (time() - t0))
 print(accuracy_score(y_test,y_pred))
+
+
+testOnImage('F3.jpg',trainedclf,pca)
 
 
 
