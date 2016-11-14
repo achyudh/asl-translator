@@ -221,7 +221,7 @@ X,Y = load_npy('samples.npy','target.npy')
 X = X.reshape(X.shape[0],X.shape[1]*X.shape[2])
 X_train,X_test,y_train,y_test = train_test_split(X,Y,test_size=0.25)
 n_components = 1000 #Number of features
-X_train_pca,X_test_pca,pca = get_pca(X_train,X_test)
+X_train_pca,X_test_pca,pca = get_pca(X_train,X_test,n_components)
 trainedclf = train_classifier(X_train_pca,y_train)
 y_pred = trainedclf.predict(X_test_pca)
 print(accuracy_score(y_test,y_pred))
