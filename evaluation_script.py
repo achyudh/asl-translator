@@ -1,5 +1,3 @@
-#!/home/oversmart/anaconda3/bin/python3
-
 import sys
 import json
 import imp
@@ -171,13 +169,13 @@ if __name__ == "__main__":
 	evaluator = Evaluator("/home/oversmart/mlproject/dataset/")
 	evaluator.load_images(test_list)
 
+	with open("params.json") as fh:
+		params = json.loads(fh.read())
+
 	from gesture_recognizer import GestureRecognizer
 	
-	gr = GestureRecognizer.load_model(	data_directory = "lite",
-										model_directory = "./"
-									 )
-
-
+	gr = GestureRecognizer.load_model(**params)
+	
 	t = time()
 	loc_score, clf_score = evaluator.evaluate(gr, parallel = True)
 	
